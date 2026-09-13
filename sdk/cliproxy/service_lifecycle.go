@@ -56,10 +56,8 @@ func (s *Service) Run(ctx context.Context) error {
 		redisqueue.SetUsageStatisticsEnabled(true)
 	}
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer shutdownCancel()
 	defer func() {
-		if err := s.Shutdown(shutdownCtx); err != nil {
+		if err := shutdownServiceOnRunExit(s.Shutdown); err != nil {
 			log.Errorf("service shutdown returned error: %v", err)
 		}
 	}()
@@ -213,6 +211,12 @@ func (s *Service) Run(ctx context.Context) error {
 	case errServer := <-s.serverErr:
 		return errServer
 	}
+}
+
+func shutdownServiceOnRunExit(shutdown func(context.Context) error) error {
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+	return shutdown(shutdownCtx)
 }
 
 // Shutdown gracefully stops background workers and the HTTP server.

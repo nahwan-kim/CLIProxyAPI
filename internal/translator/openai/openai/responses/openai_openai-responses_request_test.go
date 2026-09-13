@@ -662,35 +662,68 @@ func TestConvertOpenAIResponsesRequestToOpenAIChatCompletions_FlattensNamespaceC
 	}
 }
 
-func TestConvertOpenAIResponsesRequestToOpenAIChatCompletions_PreservesStructuredToolChoice(t *testing.T) {
-	raw := []byte(`{
-		"input": [
-			{"role":"user","content":"Run command."}
-		],
-		"tools": [
-			{
-				"type": "function",
-				"name": "run_command",
-				"parameters": {"type": "object"}
-			}
-		],
-		"tool_choice": {
-			"type": "function",
-			"function": {
-				"name": "run_command"
-			}
-		}
-	}`)
-	t.Logf("input json:\n%s", prettyJSONForTest(raw))
-
-	out := ConvertOpenAIResponsesRequestToOpenAIChatCompletions("gpt-5.4", raw, false)
-	t.Logf("output json:\n%s", prettyJSONForTest(out))
-
-	if got := gjson.GetBytes(out, "tool_choice.type").String(); got != "function" {
-		t.Fatalf("tool_choice.type = %q, want function; output=%s", got, out)
+func TestConvertOpenAIResponsesRequestToOpenAIChatCompletions_ConvertsCanonicalToolChoice(t *testing.T) {
+	tests := []struct {
+		name     string
+		raw      []byte
+		wantName string
+	}{
+		{
+			name: "function name",
+			raw: []byte(`{
+				"tools": [{"type":"function","name":"run_command","parameters":{"type":"object"}}],
+				"tool_choice": {"type":"function","name":"run_command"}
+			}`),
+			wantName: "run_command",
+		},
+		{
+			name: "namespace local name",
+			raw: []byte(`{
+				"tools": [{
+					"type":"namespace",
+					"name":"mcp__github",
+					"tools":[{"type":"function","name":"get_me","parameters":{"type":"object"}}]
+				}],
+				"tool_choice": {"type":"function","name":"get_me"}
+			}`),
+			wantName: "mcp__github__get_me",
+		},
 	}
-	if got := gjson.GetBytes(out, "tool_choice.function.name").String(); got != "run_command" {
-		t.Fatalf("tool_choice.function.name = %q, want run_command; output=%s", got, out)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := ConvertOpenAIResponsesRequestToOpenAIChatCompletions("gpt-5.4", tt.raw, false)
+
+			if got := gjson.GetBytes(out, "tool_choice.type").String(); got != "function" {
+				t.Fatalf("tool_choice.type = %q, want function; output=%s", got, out)
+			}
+			if got := gjson.GetBytes(out, "tool_choice.function.name").String(); got != tt.wantName {
+				t.Fatalf("tool_choice.function.name = %q, want %q; output=%s", got, tt.wantName, out)
+			}
+			if got := gjson.GetBytes(out, "tool_choice.name"); got.Exists() {
+				t.Fatalf("tool_choice.name should be omitted; output=%s", out)
+			}
+			if got := gjson.GetBytes(out, "tools.0.function.name").String(); got != tt.wantName {
+				t.Fatalf("emitted tool name = %q, want %q; output=%s", got, tt.wantName, out)
+			}
+		})
+	}
+}
+
+func TestConvertOpenAIResponsesRequestToOpenAIChatCompletions_PreservesScalarToolChoice(t *testing.T) {
+	for _, choice := range []string{"auto", "none", "required"} {
+		t.Run(choice, func(t *testing.T) {
+			raw := []byte(`{
+				"tools": [{"type":"function","name":"run_command","parameters":{"type":"object"}}],
+				"tool_choice": "` + choice + `"
+			}`)
+
+			out := ConvertOpenAIResponsesRequestToOpenAIChatCompletions("gpt-5.4", raw, false)
+
+			if got := gjson.GetBytes(out, "tool_choice").String(); got != choice {
+				t.Fatalf("tool_choice = %q, want %q; output=%s", got, choice, out)
+			}
+		})
 	}
 }
 

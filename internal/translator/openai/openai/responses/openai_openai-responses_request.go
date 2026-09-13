@@ -349,7 +349,14 @@ func ConvertOpenAIResponsesRequestToOpenAIChatCompletions(modelName string, inpu
 			out, _ = sjson.SetBytes(out, "parallel_tool_calls", parallelToolCalls.Bool())
 		}
 		if toolChoice := root.Get("tool_choice"); toolChoice.Exists() {
-			out, _ = sjson.SetRawBytes(out, "tool_choice", []byte(toolChoice.Raw))
+			if toolChoice.IsObject() && toolChoice.Get("type").String() == "function" {
+				name := canonicalResponsesToolName(inputRawJSON, toolChoice.Get("name").String())
+				chatToolChoice := []byte(`{"type":"function","function":{"name":""}}`)
+				chatToolChoice, _ = sjson.SetBytes(chatToolChoice, "function.name", name)
+				out, _ = sjson.SetRawBytes(out, "tool_choice", chatToolChoice)
+			} else {
+				out, _ = sjson.SetRawBytes(out, "tool_choice", []byte(toolChoice.Raw))
+			}
 		}
 	}
 
