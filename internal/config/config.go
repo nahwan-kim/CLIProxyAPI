@@ -126,6 +126,9 @@ type Config struct {
 	// with HTTP 400 instead of clamping them or passing them through (9ooniq).
 	StrictThinkingLevels bool `yaml:"strict-thinking-levels,omitempty" json:"strict-thinking-levels,omitempty"`
 
+	// TypeSafe forwards System One judgment requests (POST /v1/systemone) to TypeSafe (9ooniq).
+	TypeSafe TypeSafeConfig `yaml:"typesafe,omitempty" json:"typesafe,omitempty"`
+
 	// Antigravity configures provider-wide Antigravity request behavior.
 	Antigravity AntigravityConfig `yaml:"antigravity" json:"antigravity"`
 
