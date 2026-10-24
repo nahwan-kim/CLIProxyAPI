@@ -999,6 +999,7 @@ func (h *OpenAIAPIHandler) imagesEditsFromJSON(c *gin.Context) {
 		})
 		return
 	}
+	rawJSON = normalizeImageEditReferences(rawJSON)
 
 	imageModel := strings.TrimSpace(gjson.GetBytes(rawJSON, "model").String())
 	if imageModel == "" {
