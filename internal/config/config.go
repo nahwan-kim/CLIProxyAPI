@@ -122,6 +122,10 @@ type Config struct {
 
 	AntigravitySignatureBypassStrict *bool `yaml:"antigravity-signature-bypass-strict,omitempty" json:"antigravity-signature-bypass-strict,omitempty"`
 
+	// StrictThinkingLevels rejects reasoning levels outside the target model's registered levels
+	// with HTTP 400 instead of clamping them or passing them through (9ooniq).
+	StrictThinkingLevels bool `yaml:"strict-thinking-levels,omitempty" json:"strict-thinking-levels,omitempty"`
+
 	// Antigravity configures provider-wide Antigravity request behavior.
 	Antigravity AntigravityConfig `yaml:"antigravity" json:"antigravity"`
 

@@ -270,6 +270,11 @@ func applyThinking(body, sourceBody []byte, model string, fromFormat string, toF
 			sourceConfig = extractCodexUsageConfig(sourceRequest)
 		}
 	}
+	if StrictLevelsEnabled() {
+		if err := enforceStrictLevels(body, sourceBody, modelInfo, baseModel, fromFormat, providerFormat, suffixResult, sourceConfig); err != nil {
+			return body, err
+		}
+	}
 	responseTarget := providerFormat == "codex" || providerFormat == "xai"
 	supportsUpdates := modelInfo != nil && modelInfo.SupportConfigurationUpdate
 	if responseTarget && !supportsUpdates {
