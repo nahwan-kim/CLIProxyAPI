@@ -16,6 +16,10 @@ go build -o test-output ./cmd/server && rm test-output # Verify compile (REQUIRE
 ```
 - Common flags: `--config <path>`, `--tui`, `--standalone`, `--local-model`, `--no-browser`, `--oauth-callback-port <port>`
 
+## macOS Service Deployment
+- Restart the production LaunchAgent with `scripts/restart-macos-service.sh` (installed locally as `cliproxyapi-restart`).
+- Do not run `launchctl bootout` and `launchctl bootstrap` back-to-back. The restart script waits for service removal and port release, retries bootstrap, and verifies the API health endpoint.
+
 ## Config
 - Default config: `config.yaml` (template: `config.example.yaml`)
 - `.env` is auto-loaded from the working directory
