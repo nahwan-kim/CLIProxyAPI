@@ -145,7 +145,7 @@ func TestOpenAICompatExecutor_ImageEndpointPath_HonorsOverriddenRequestPath_Issu
 		},
 	}
 
-	payload := []byte(`{"model":"gpt-image-2.5","prompt":"a red apple"}`)
+	payload := []byte(`{"model":"gpt-image-2.6","prompt":"a red apple"}`)
 	// Case 1: default inbound path is edits
 	optsEdits := cliproxyexecutor.Options{
 		SourceFormat: sdktranslator.FromString("openai-image"),
@@ -154,7 +154,7 @@ func TestOpenAICompatExecutor_ImageEndpointPath_HonorsOverriddenRequestPath_Issu
 		},
 	}
 	if _, err := executor.Execute(context.Background(), auth, cliproxyexecutor.Request{
-		Model:   "gpt-image-2.5",
+		Model:   "gpt-image-2.6",
 		Payload: payload,
 	}, optsEdits); err != nil {
 		t.Fatalf("Execute edits error: %v", err)
@@ -171,7 +171,7 @@ func TestOpenAICompatExecutor_ImageEndpointPath_HonorsOverriddenRequestPath_Issu
 		},
 	}
 	resp, err := executor.Execute(context.Background(), auth, cliproxyexecutor.Request{
-		Model:   "gpt-image-2.5",
+		Model:   "gpt-image-2.6",
 		Payload: payload,
 	}, optsGenerations)
 	if err != nil {

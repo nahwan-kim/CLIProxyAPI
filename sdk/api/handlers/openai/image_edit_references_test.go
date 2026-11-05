@@ -8,9 +8,9 @@ import (
 
 func TestNormalizeImageEditReferences(t *testing.T) {
 	cases := map[string]string{
-		"input_references": `{"model":"gpt-image-2.5","input_references":[{"type":"image_url","url":"data:a"},{"type":"image_url","url":"data:b"}]}`,
-		"image string":     `{"model":"gpt-image-2.5","image":"data:a"}`,
-		"image object":     `{"model":"gpt-image-2.5","image":{"image_url":{"url":"data:a"}}}`,
+		"input_references": `{"model":"gpt-image-2.6","input_references":[{"type":"image_url","url":"data:a"},{"type":"image_url","url":"data:b"}]}`,
+		"image string":     `{"model":"gpt-image-2.6","image":"data:a"}`,
+		"image object":     `{"model":"gpt-image-2.6","image":{"image_url":{"url":"data:a"}}}`,
 	}
 	for name, body := range cases {
 		out := normalizeImageEditReferences([]byte(body))
@@ -26,7 +26,7 @@ func TestNormalizeImageEditReferences(t *testing.T) {
 	if string(normalizeImageEditReferences([]byte(keep))) != keep {
 		t.Fatal("existing images array must be left untouched")
 	}
-	none := `{"model":"gpt-image-2.5","prompt":"x"}`
+	none := `{"model":"gpt-image-2.6","prompt":"x"}`
 	if string(normalizeImageEditReferences([]byte(none))) != none {
 		t.Fatal("body without references must be unchanged")
 	}

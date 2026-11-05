@@ -1425,7 +1425,7 @@ func TestInterceptRequestPropagatesPath_Issue6196(t *testing.T) {
 			RequestInterceptor: requestInterceptorFunc(func(ctx context.Context, req pluginapi.RequestInterceptRequest) (pluginapi.RequestInterceptResponse, error) {
 				return pluginapi.RequestInterceptResponse{
 					Path: "/v1/images/generations",
-					Body: []byte(`{"model":"gpt-image-2.5"}`),
+					Body: []byte(`{"model":"gpt-image-2.6"}`),
 				}, nil
 			}),
 		}},
@@ -1433,14 +1433,14 @@ func TestInterceptRequestPropagatesPath_Issue6196(t *testing.T) {
 
 	got := host.InterceptRequestAfterAuth(context.Background(), pluginapi.RequestInterceptRequest{
 		SourceFormat: "openai-image",
-		Model:        "gpt-image-2.5",
-		Body:         []byte(`{"model":"gpt-image-2.5"}`),
+		Model:        "gpt-image-2.6",
+		Body:         []byte(`{"model":"gpt-image-2.6"}`),
 	})
 
 	if got.Path != "/v1/images/generations" {
 		t.Fatalf("got.Path = %q, want /v1/images/generations", got.Path)
 	}
-	if string(got.Body) != `{"model":"gpt-image-2.5"}` {
+	if string(got.Body) != `{"model":"gpt-image-2.6"}` {
 		t.Fatalf("got.Body = %s, want expected body", string(got.Body))
 	}
 }
@@ -1455,7 +1455,7 @@ func TestInterceptRequestPropagatesPathAcrossPluginChain_Issue6196(t *testing.T)
 				RequestInterceptor: requestInterceptorFunc(func(ctx context.Context, req pluginapi.RequestInterceptRequest) (pluginapi.RequestInterceptResponse, error) {
 					return pluginapi.RequestInterceptResponse{
 						Path: "/v1/images/generations",
-						Body: []byte(`{"model":"gpt-image-2.5","rewritten":true}`),
+						Body: []byte(`{"model":"gpt-image-2.6","rewritten":true}`),
 					}, nil
 				}),
 			}},
@@ -1476,8 +1476,8 @@ func TestInterceptRequestPropagatesPathAcrossPluginChain_Issue6196(t *testing.T)
 
 	got := host.InterceptRequestAfterAuth(context.Background(), pluginapi.RequestInterceptRequest{
 		SourceFormat: "openai-image",
-		Model:        "gpt-image-2.5",
-		Body:         []byte(`{"model":"gpt-image-2.5"}`),
+		Model:        "gpt-image-2.6",
+		Body:         []byte(`{"model":"gpt-image-2.6"}`),
 		Metadata: map[string]any{
 			coreexecutor.RequestPathMetadataKey: "/v1/images/edits",
 		},

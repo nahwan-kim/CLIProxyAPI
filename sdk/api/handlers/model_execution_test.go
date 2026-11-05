@@ -1195,7 +1195,7 @@ func TestExecuteModelStreamReturnsFilteredHeadersWhenPassthroughDisabled(t *test
 }
 
 func TestExecuteModelAllowsImageModel_Issue6196(t *testing.T) {
-	model := "gpt-image-2.5"
+	model := "gpt-image-2.6"
 	requestBody := []byte(`{"prompt":"a red apple"}`)
 	executor := &modelExecutionCaptureExecutor{
 		provider: "openai",

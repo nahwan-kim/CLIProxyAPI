@@ -9,9 +9,9 @@ import (
 const (
 	codexBuiltinImage15ModelID         = "gpt-image-1.5"
 	codexBuiltinImageModelID           = "gpt-image-2"
-	codexBuiltinImage25FlareModelID    = "gpt-image-2.5-flare"
-	codexBuiltinImage25SunburstModelID = "gpt-image-2.5-sunburst"
-	codexBuiltinImage25ModelID         = "gpt-image-2.5"
+	codexBuiltinImage26FlareModelID    = "gpt-image-2.6-flare"
+	codexBuiltinImage26SunburstModelID = "gpt-image-2.6-sunburst"
+	codexBuiltinImage26ModelID         = "gpt-image-2.6"
 	xaiBuiltinImageModelID             = "grok-imagine-image"
 	xaiBuiltinImageQualityModelID      = "grok-imagine-image-quality"
 	xaiBuiltinImage20ModelID           = "grok-imagine-image-2.0"
@@ -251,9 +251,9 @@ func WithCodexBuiltins(models []*ModelInfo) []*ModelInfo {
 	return upsertModelInfos(models,
 		codexBuiltinImage15ModelInfo(),
 		codexBuiltinImageModelInfo(),
-		codexBuiltinImage25FlareModelInfo(),
-		codexBuiltinImage25SunburstModelInfo(),
-		codexBuiltinImage25ModelInfo(),
+		codexBuiltinImage26FlareModelInfo(),
+		codexBuiltinImage26SunburstModelInfo(),
+		codexBuiltinImage26ModelInfo(),
 	)
 }
 
@@ -295,39 +295,39 @@ func codexBuiltinImageModelInfo() *ModelInfo {
 	}
 }
 
-func codexBuiltinImage25FlareModelInfo() *ModelInfo {
+func codexBuiltinImage26FlareModelInfo() *ModelInfo {
 	return &ModelInfo{
-		ID:          codexBuiltinImage25FlareModelID,
+		ID:          codexBuiltinImage26FlareModelID,
 		Object:      "model",
 		Created:     1704067200, // 2024-01-01
 		OwnedBy:     "openai",
 		Type:        "openai",
-		DisplayName: "GPT Image 2.5 Flare",
-		Version:     codexBuiltinImage25FlareModelID,
+		DisplayName: "GPT Image 2.6 Flare",
+		Version:     codexBuiltinImage26FlareModelID,
 	}
 }
 
-func codexBuiltinImage25SunburstModelInfo() *ModelInfo {
+func codexBuiltinImage26SunburstModelInfo() *ModelInfo {
 	return &ModelInfo{
-		ID:          codexBuiltinImage25SunburstModelID,
+		ID:          codexBuiltinImage26SunburstModelID,
 		Object:      "model",
 		Created:     1704067200, // 2024-01-01
 		OwnedBy:     "openai",
 		Type:        "openai",
-		DisplayName: "GPT Image 2.5 Sunburst",
-		Version:     codexBuiltinImage25SunburstModelID,
+		DisplayName: "GPT Image 2.6 Sunburst",
+		Version:     codexBuiltinImage26SunburstModelID,
 	}
 }
 
-func codexBuiltinImage25ModelInfo() *ModelInfo {
+func codexBuiltinImage26ModelInfo() *ModelInfo {
 	return &ModelInfo{
-		ID:          codexBuiltinImage25ModelID,
+		ID:          codexBuiltinImage26ModelID,
 		Object:      "model",
 		Created:     1704067200, // 2024-01-01
 		OwnedBy:     "openai",
 		Type:        "openai",
-		DisplayName: "GPT Image 2.5",
-		Version:     codexBuiltinImage25ModelID,
+		DisplayName: "GPT Image 2.6",
+		Version:     codexBuiltinImage26ModelID,
 	}
 }
 
