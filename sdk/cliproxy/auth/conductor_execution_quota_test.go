@@ -356,8 +356,8 @@ func TestApplyRequestAfterAuthInterceptorPreservesLCPHierarchyOnUnrelatedHeaderC
 
 func TestApplyRequestAfterAuthInterceptor_OverridesPath_Issue6196(t *testing.T) {
 	req := cliproxyexecutor.Request{
-		Model:   "gpt-image-2.6",
-		Payload: []byte(`{"model":"gpt-image-2.6","prompt":"edit this"}`),
+		Model:   "gpt-image-2.5",
+		Payload: []byte(`{"model":"gpt-image-2.5","prompt":"edit this"}`),
 	}
 	opts := cliproxyexecutor.Options{
 		Metadata: map[string]any{
@@ -366,16 +366,16 @@ func TestApplyRequestAfterAuthInterceptor_OverridesPath_Issue6196(t *testing.T) 
 		RequestAfterAuthInterceptor: func(ctx context.Context, req cliproxyexecutor.RequestAfterAuthInterceptRequest) cliproxyexecutor.RequestAfterAuthInterceptResponse {
 			return cliproxyexecutor.RequestAfterAuthInterceptResponse{
 				Path: "/v1/images/generations",
-				Body: []byte(`{"model":"gpt-image-2.6","prompt":"rewritten for generations"}`),
+				Body: []byte(`{"model":"gpt-image-2.5","prompt":"rewritten for generations"}`),
 			}
 		},
 	}
 
-	finalReq, finalOpts, err := applyRequestAfterAuthInterceptor(context.Background(), nil, "openai-compatibility", req, opts, "gpt-image-2.6")
+	finalReq, finalOpts, err := applyRequestAfterAuthInterceptor(context.Background(), nil, "openai-compatibility", req, opts, "gpt-image-2.5")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if string(finalReq.Payload) != `{"model":"gpt-image-2.6","prompt":"rewritten for generations"}` {
+	if string(finalReq.Payload) != `{"model":"gpt-image-2.5","prompt":"rewritten for generations"}` {
 		t.Fatalf("final payload = %s, want rewritten", string(finalReq.Payload))
 	}
 	if gotPath := finalOpts.Metadata[cliproxyexecutor.RequestPathMetadataKey]; gotPath != "/v1/images/generations" {

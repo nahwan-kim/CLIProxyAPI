@@ -14,7 +14,7 @@ func strictTestModel() *registry.ModelInfo {
 func TestEnforceStrictLevelsRejectsUnregisteredLevel(t *testing.T) {
 	body := []byte(`{"model":"grok-test","reasoning":{"effort":"max"}}`)
 	cfg := extractCodexUsageConfig(body)
-	err := enforceStrictLevels(body, nil, strictTestModel(), "grok-test", "openai-response", "xai", SuffixResult{}, cfg)
+	err := enforceStrictLevels(body, strictTestModel(), "grok-test", "openai-response", "xai", SuffixResult{}, cfg)
 	var te *ThinkingError
 	if !errors.As(err, &te) || te.Code != ErrLevelNotSupported {
 		t.Fatalf("expected ErrLevelNotSupported, got %v", err)
@@ -27,7 +27,7 @@ func TestEnforceStrictLevelsRejectsUnregisteredLevel(t *testing.T) {
 func TestEnforceStrictLevelsAllowsRegisteredAndSpecialLevels(t *testing.T) {
 	for _, effort := range []string{"xhigh", "low", "none", "auto"} {
 		body := []byte(`{"model":"grok-test","reasoning":{"effort":"` + effort + `"}}`)
-		if err := enforceStrictLevels(body, nil, strictTestModel(), "grok-test", "openai-response", "xai", SuffixResult{}, extractCodexUsageConfig(body)); err != nil {
+		if err := enforceStrictLevels(body, strictTestModel(), "grok-test", "openai-response", "xai", SuffixResult{}, extractCodexUsageConfig(body)); err != nil {
 			t.Fatalf("effort %s: unexpected error %v", effort, err)
 		}
 	}
@@ -35,10 +35,10 @@ func TestEnforceStrictLevelsAllowsRegisteredAndSpecialLevels(t *testing.T) {
 
 func TestEnforceStrictLevelsChatCompletionsAndUnknownModel(t *testing.T) {
 	body := []byte(`{"model":"grok-test","reasoning_effort":"minimal"}`)
-	if err := enforceStrictLevels(body, nil, strictTestModel(), "grok-test", "openai", "xai", SuffixResult{}, ThinkingConfig{}); err == nil {
+	if err := enforceStrictLevels(body, strictTestModel(), "grok-test", "openai", "xai", SuffixResult{}, ThinkingConfig{}); err == nil {
 		t.Fatal("expected chat-completions minimal to be rejected")
 	}
-	if err := enforceStrictLevels(body, nil, &registry.ModelInfo{ID: "no-levels"}, "no-levels", "openai", "openai", SuffixResult{}, ThinkingConfig{}); err != nil {
+	if err := enforceStrictLevels(body, &registry.ModelInfo{ID: "no-levels"}, "no-levels", "openai", "openai", SuffixResult{}, ThinkingConfig{}); err != nil {
 		t.Fatalf("model without registered levels must pass: %v", err)
 	}
 }

@@ -3,7 +3,7 @@ package openai
 import (
 	"testing"
 
-	"github.com/tidwall/gjson"
+	"github.com/MoeForge/moego/ojson"
 )
 
 func TestNormalizeImageEditReferences(t *testing.T) {
@@ -14,12 +14,12 @@ func TestNormalizeImageEditReferences(t *testing.T) {
 	}
 	for name, body := range cases {
 		out := normalizeImageEditReferences([]byte(body))
-		if got := gjson.GetBytes(out, "images.0.image_url").String(); got != "data:a" {
+		if got := ojson.GetBytes(out, "images.0.image_url").String(); got != "data:a" {
 			t.Fatalf("%s: images.0.image_url = %q, body %s", name, got, out)
 		}
 	}
 	out := normalizeImageEditReferences([]byte(cases["input_references"]))
-	if got := gjson.GetBytes(out, "images.1.image_url").String(); got != "data:b" {
+	if got := ojson.GetBytes(out, "images.1.image_url").String(); got != "data:b" {
 		t.Fatalf("second reference lost: %s", out)
 	}
 	keep := `{"images":[{"image_url":"data:x"}],"input_references":[{"url":"data:y"}]}`

@@ -3,7 +3,6 @@ package live
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"mime/multipart"
@@ -15,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MoeForge/moego/base64"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"

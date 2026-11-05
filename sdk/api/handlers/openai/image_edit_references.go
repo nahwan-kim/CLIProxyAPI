@@ -4,8 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
+	"github.com/MoeForge/moego/ojson"
 )
 
 // normalizeImageEditReferences maps alternate JSON image-edit shapes onto the
@@ -13,12 +12,12 @@ import (
 // input_references[] ({type:"image_url", url}) and some send a single image
 // (string or object). An existing images array is left untouched (9ooniq).
 func normalizeImageEditReferences(rawJSON []byte) []byte {
-	if gjson.GetBytes(rawJSON, "images").Exists() {
+	if ojson.GetBytes(rawJSON, "images").Exists() {
 		return rawJSON
 	}
 	var urls []string
-	collect := func(item gjson.Result) {
-		if item.Type == gjson.String {
+	collect := func(item ojson.Result) {
+		if item.Type == ojson.String {
 			if url := strings.TrimSpace(item.String()); url != "" {
 				urls = append(urls, url)
 			}
@@ -26,7 +25,7 @@ func normalizeImageEditReferences(rawJSON []byte) []byte {
 		}
 		for _, path := range []string{"url", "image_url.url", "image_url"} {
 			value := item.Get(path)
-			if value.Type == gjson.String {
+			if value.Type == ojson.String {
 				if url := strings.TrimSpace(value.String()); url != "" {
 					urls = append(urls, url)
 					return
@@ -34,26 +33,24 @@ func normalizeImageEditReferences(rawJSON []byte) []byte {
 			}
 		}
 	}
-	if refs := gjson.GetBytes(rawJSON, "input_references"); refs.IsArray() {
+	if refs := ojson.GetBytes(rawJSON, "input_references"); refs.IsArray() {
 		for _, item := range refs.Array() {
 			collect(item)
 		}
 	}
 	if len(urls) == 0 {
-		if image := gjson.GetBytes(rawJSON, "image"); image.Exists() {
+		if image := ojson.GetBytes(rawJSON, "image"); image.Exists() {
 			collect(image)
 		}
 	}
 	if len(urls) == 0 {
 		return rawJSON
 	}
-	out := rawJSON
+	doc := ojson.NewDoc(rawJSON)
 	for i, url := range urls {
-		next, err := sjson.SetBytes(out, "images."+strconv.Itoa(i)+".image_url", url)
-		if err != nil {
+		if err := doc.Set("images."+strconv.Itoa(i)+".image_url", url); err != nil {
 			return rawJSON
 		}
-		out = next
 	}
-	return out
+	return doc.Bytes()
 }

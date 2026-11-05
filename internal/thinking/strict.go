@@ -19,15 +19,12 @@ func SetStrictLevels(enabled bool) { strictLevels.Store(enabled) }
 func StrictLevelsEnabled() bool { return strictLevels.Load() }
 
 // enforceStrictLevels returns an ErrLevelNotSupported ThinkingError (HTTP 400) when the
-// request asks for an explicit reasoning level the model does not register. Models
-// without registered levels, and the none/auto selectors, are left to normal handling.
-func enforceStrictLevels(body, sourceBody []byte, modelInfo *registry.ModelInfo, baseModel, fromFormat, providerFormat string, suffix SuffixResult, sourceConfig ThinkingConfig) error {
+// request asks for an explicit reasoning level the model does not register. request is the
+// client source body when available, else the translated body. Models without registered
+// levels, and the none/auto selectors, are left to normal handling.
+func enforceStrictLevels(request []byte, modelInfo *registry.ModelInfo, baseModel, fromFormat, providerFormat string, suffix SuffixResult, sourceConfig ThinkingConfig) error {
 	if modelInfo == nil || modelInfo.Thinking == nil || len(modelInfo.Thinking.Levels) == 0 {
 		return nil
-	}
-	request := body
-	if len(sourceBody) > 0 {
-		request = sourceBody
 	}
 	var candidates []ThinkingConfig
 	if suffix.HasSuffix {
