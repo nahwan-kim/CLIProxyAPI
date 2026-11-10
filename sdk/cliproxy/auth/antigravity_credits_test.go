@@ -373,3 +373,25 @@ func TestManagerExecuteAndStream_ExpiredNegativeCreditsHintRecoversDuringModelCo
 		})
 	}
 }
+
+func TestResetAntigravityCreditsHintIfUnchanged_KeepsHintPublishedSinceTheRead(t *testing.T) {
+	const authID = "ag-reset-hint-if-unchanged"
+	t.Cleanup(func() { antigravityCreditsHintByAuth.Delete(authID) })
+
+	SetAntigravityCreditsHint(authID, AntigravityCreditsHint{Known: true, Available: false, MinCreditAmount: 1})
+	stale, _ := GetAntigravityCreditsHint(authID)
+
+	// A balance refresh publishes fresh credits between the caller's read and its reset.
+	SetAntigravityCreditsHint(authID, AntigravityCreditsHint{Known: true, Available: true, CreditAmount: 2516, MinCreditAmount: 50})
+	ResetAntigravityCreditsHintIfUnchanged(authID, stale)
+	if hint, ok := GetAntigravityCreditsHint(authID); !ok || !hint.Known || !hint.Available || hint.CreditAmount != 2516 {
+		t.Fatalf("hint after a reset based on a stale read = %#v (ok=%v), want the refreshed credits kept", hint, ok)
+	}
+
+	// Without a newer hint the state that was read is forgotten.
+	current, _ := GetAntigravityCreditsHint(authID)
+	ResetAntigravityCreditsHintIfUnchanged(authID, current)
+	if HasKnownAntigravityCreditsHint(authID) {
+		t.Fatal("hint is still known after a reset based on the current value")
+	}
+}

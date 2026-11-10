@@ -64,6 +64,22 @@ func SetAntigravityCreditsHint(authID string, hint AntigravityCreditsHint) {
 	antigravityCreditsHintByAuth.Store(authID, hint)
 }
 
+// ResetAntigravityCreditsHintIfUnchanged forgets the credits state for an auth while the stored
+// hint still equals expected. A balance refresh can publish a newer hint between the caller's
+// read and this write, and that hint must survive.
+func ResetAntigravityCreditsHintIfUnchanged(authID string, expected AntigravityCreditsHint) {
+	authID = strings.TrimSpace(authID)
+	if authID == "" {
+		return
+	}
+	if _, homeMode, _ := homekv.CurrentKVClient(); homeMode {
+		// Home KV offers no compare-and-swap, so the reset stays unconditional there.
+		SetAntigravityCreditsHint(authID, AntigravityCreditsHint{})
+		return
+	}
+	antigravityCreditsHintByAuth.CompareAndSwap(authID, expected, AntigravityCreditsHint{UpdatedAt: time.Now()})
+}
+
 // GetAntigravityCreditsHint returns the latest known AI credits state for an auth.
 func GetAntigravityCreditsHint(authID string) (AntigravityCreditsHint, bool) {
 	hint, ok, err := GetAntigravityCreditsHintRequired(context.Background(), authID)
