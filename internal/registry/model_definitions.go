@@ -45,7 +45,29 @@ type staticModelsJSON struct {
 
 // GetClaudeModels returns the standard Claude model definitions.
 func GetClaudeModels() []*ModelInfo {
-	return cloneModelInfos(getModels().Claude)
+	return upsertModelInfos(cloneModelInfos(getModels().Claude), claudeBuiltinMythos52ModelInfo())
+}
+
+// claudeBuiltinMythos52ModelInfo defines Claude Mythos 5.2, which the remote
+// models.json does not list. Only accounts admitted to it can serve requests;
+// exclude it per auth file (excluded_models) for the others.
+func claudeBuiltinMythos52ModelInfo() *ModelInfo {
+	return &ModelInfo{
+		ID:                  "claude-mythos-5-2",
+		Object:              "model",
+		Created:             1794249000, // 2026-11-09
+		OwnedBy:             "anthropic",
+		Type:                "claude",
+		DisplayName:         "Claude Mythos 5.2",
+		ContextLength:       1000000,
+		MaxCompletionTokens: 128000,
+		Thinking: &ThinkingSupport{
+			DynamicAllowed: true,
+			Levels:         []string{"low", "medium", "high", "xhigh", "max"},
+		},
+		SupportedInputModalities:  []string{"text", "image"},
+		SupportedOutputModalities: []string{"text"},
+	}
 }
 
 // GetGeminiModels returns the standard Gemini model definitions.
