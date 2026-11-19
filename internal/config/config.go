@@ -147,6 +147,11 @@ type Config struct {
 	// TypeSafe forwards System One judgment requests (POST /v1/systemone) to TypeSafe (9ooniq).
 	TypeSafe TypeSafeConfig `yaml:"typesafe,omitempty" json:"typesafe,omitempty"`
 
+	// ProviderAllowedAPIKeys restricts a provider's credentials to the listed client API keys
+	// (provider name -> client keys). A provider without an entry serves every client key; a
+	// provider with an entry rejects every client key that is not listed (9ooniq).
+	ProviderAllowedAPIKeys map[string][]string `yaml:"provider-allowed-api-keys,omitempty" json:"provider-allowed-api-keys,omitempty"`
+
 	// ProxyPoolPublisher identifies the runtime that published this snapshot, so a
 	// reload in one runtime never retires another runtime's snapshots.
 	ProxyPoolPublisher uint64 `yaml:"-" json:"-"`

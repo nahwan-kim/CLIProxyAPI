@@ -340,6 +340,9 @@ func LoadConfigOptional(configFile string, optional bool) (*Config, error) {
 	// Validate raw payload rules and drop invalid entries.
 	cfg.SanitizePayloadRules()
 
+	// Normalize per-provider client API key restrictions.
+	cfg.SanitizeProviderAllowedAPIKeys()
+
 	// Only conflicting legacy fields are removed on load. A legacy-only document
 	// stays legacy until a v8 configuration write explicitly migrates it.
 	current, errRead := os.ReadFile(configFile)

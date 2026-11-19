@@ -47,6 +47,33 @@ func (cfg *Config) NormalizeClaudeConfig() {
 	}
 }
 
+// SanitizeProviderAllowedAPIKeys lower-cases provider names and trims client keys so request-time
+// lookups can use normalized provider names directly. An entry whose keys are all blank stays in
+// the map with an empty list, which keeps the provider closed to every client key.
+func (cfg *Config) SanitizeProviderAllowedAPIKeys() {
+	if cfg == nil || len(cfg.ProviderAllowedAPIKeys) == 0 {
+		return
+	}
+	normalized := make(map[string][]string, len(cfg.ProviderAllowedAPIKeys))
+	for provider, keys := range cfg.ProviderAllowedAPIKeys {
+		provider = strings.ToLower(strings.TrimSpace(provider))
+		if provider == "" {
+			continue
+		}
+		allowed := normalized[provider]
+		if allowed == nil {
+			allowed = make([]string, 0, len(keys))
+		}
+		for _, key := range keys {
+			if key = strings.TrimSpace(key); key != "" {
+				allowed = append(allowed, key)
+			}
+		}
+		normalized[provider] = allowed
+	}
+	cfg.ProviderAllowedAPIKeys = normalized
+}
+
 // SanitizeCodexHeaderDefaults trims surrounding whitespace from the
 // configured Codex header fallback values.
 func (cfg *Config) SanitizeCodexHeaderDefaults() {
