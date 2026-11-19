@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	internalconfig "github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executionregistry"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	coreusage "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/usage"
 )
@@ -200,6 +201,139 @@ func TestProviderAllowedAPIKeysIgnoresPinnedRestrictedAuth(t *testing.T) {
 			if calls := fixture.executors["claude"].calls.Load(); calls != 0 {
 				t.Fatalf("restricted upstream calls = %d, want 0", calls)
 			}
+		})
+	}
+}
+
+func TestProviderAllowedAPIKeysMatchesProviderSpellings(t *testing.T) {
+	// An entry and a request can spell one provider differently: scheduling treats kimi.com as
+	// kimi, and a config that was not sanitized on load keeps its original case and padding.
+	for _, tc := range []struct{ entry, requested string }{
+		{entry: "kimi", requested: "kimi.com"},
+		{entry: "kimi.com", requested: "kimi"},
+		{entry: "kimi-ai", requested: "kimi.ai"},
+		{entry: " Claude ", requested: "claude"},
+	} {
+		t.Run(tc.entry+"/"+tc.requested, func(t *testing.T) {
+			manager := NewManager(nil, nil, NoopHook{})
+			manager.SetConfig(&internalconfig.Config{ProviderAllowedAPIKeys: map[string][]string{tc.entry: {"owner-key"}}})
+			guest := coreusage.WithAPIKey(context.Background(), "guest-key")
+			_, err := manager.restrictProvidersForClient(guest, []string{tc.requested})
+			requireProviderAccessDenied(t, err)
+			owner := coreusage.WithAPIKey(context.Background(), "owner-key")
+			kept, err := manager.restrictProvidersForClient(owner, []string{tc.requested})
+			if err != nil || len(kept) != 1 || kept[0] != tc.requested {
+				t.Fatalf("listed key: providers = %v, err = %v; want [%s]", kept, err, tc.requested)
+			}
+		})
+	}
+}
+
+func TestProviderAllowedAPIKeysGuardsDirectCredentialSelection(t *testing.T) {
+	fixture := newProviderAccessFixture(t, map[string][]string{"claude": {"owner-key"}}, "claude")
+	guest := coreusage.WithAPIKey(context.Background(), "guest-key")
+	opts := cliproxyexecutor.Options{}
+
+	_, err := fixture.manager.SelectAuth(guest, "claude", fixture.model, opts)
+	requireProviderAccessDenied(t, err)
+	_, err = fixture.manager.SelectAuthByKind(guest, "claude", fixture.model, AuthKindOAuth, opts)
+	requireProviderAccessDenied(t, err)
+	_, err = fixture.manager.SelectAuthWithCredentialPolicy(guest, "claude", fixture.model, CredentialPolicyCodexAlphaSearchV1, opts)
+	requireProviderAccessDenied(t, err)
+
+	owner := coreusage.WithAPIKey(context.Background(), "owner-key")
+	selected, err := fixture.manager.SelectAuth(owner, "claude", fixture.model, opts)
+	if err != nil || selected == nil || selected.ID != fixture.authIDs["claude"] {
+		t.Fatalf("listed key: selected = %v, err = %v; want the claude credential", selected, err)
+	}
+}
+
+func TestProviderAllowedAPIKeysGuardsHomeDispatchedProvider(t *testing.T) {
+	for _, client := range []struct {
+		name    string
+		key     string
+		allowed bool
+	}{
+		{name: "listed key", key: "owner-key", allowed: true},
+		{name: "unlisted key", key: "guest-key"},
+	} {
+		t.Run(client.name, func(t *testing.T) {
+			// Home names the provider only after dispatch, so the request-time provider list
+			// cannot carry the restriction.
+			dispatcher := &fixtureHomeDispatcher{payload: []byte(`{"auth":{"id":"home-claude-auth","provider":"claude"}}`)}
+			manager := newHomeSelectionTestManager(t, dispatcher)
+			manager.RegisterExecutor(schedulerTestExecutor{provider: "claude"})
+			manager.SetConfig(&internalconfig.Config{ProviderAllowedAPIKeys: map[string][]string{"claude": {"owner-key"}}})
+			opts := cliproxyexecutor.Options{}
+			opts.EnsureMetadata()
+			selection, err := manager.pickHomeDispatchSelection(coreusage.WithAPIKey(t.Context(), client.key), "model", opts)
+			if client.allowed {
+				if err != nil {
+					t.Fatalf("listed key: err = %v", err)
+				}
+				selection.End("test_complete")
+				return
+			}
+			requireProviderAccessDenied(t, err)
+			if selection != nil {
+				t.Fatal("a restricted Home credential was selected for a guest key")
+			}
+		})
+	}
+}
+
+func TestProviderAllowedAPIKeysRevokesRetainedHomeSession(t *testing.T) {
+	// A websocket session keeps its Home credential between turns, so a restriction added
+	// mid-session must still apply to the next turn.
+	dispatcher := &retainingHomeExecutionDispatcher{}
+	manager := NewManager(nil, nil, nil)
+	manager.SetConfig(&internalconfig.Config{Home: internalconfig.HomeConfig{Enabled: true}})
+	manager.PublishHomeDispatch(dispatcher, executionregistry.New(), 1)
+	executor := &retainingHomeExecutionExecutor{}
+	manager.RegisterExecutor(executor)
+
+	ctx := coreusage.WithAPIKey(cliproxyexecutor.WithDownstreamWebsocket(context.Background()), "guest-key")
+	opts := cliproxyexecutor.Options{Metadata: map[string]any{
+		cliproxyexecutor.ExecutionSessionMetadataKey: "session-revoked",
+		cliproxyexecutor.PinnedAuthMetadataKey:       "home-auth",
+	}}
+	request := cliproxyexecutor.Request{Model: "model-a"}
+	// Home mode hands Execute the placeholder provider list, as the request handlers do.
+	if _, errExecute := manager.Execute(ctx, []string{"home"}, request, opts); errExecute != nil {
+		t.Fatalf("Execute() before the restriction: %v", errExecute)
+	}
+	manager.SetConfig(&internalconfig.Config{
+		Home:                   internalconfig.HomeConfig{Enabled: true},
+		ProviderAllowedAPIKeys: map[string][]string{executor.Identifier(): {"owner-key"}},
+	})
+	_, errExecute := manager.Execute(ctx, []string{"home"}, request, opts)
+	requireProviderAccessDenied(t, errExecute)
+	if got := executor.calls.Load(); got != 1 {
+		t.Fatalf("executor calls = %d, want 1: the retained credential served a revoked key", got)
+	}
+}
+
+func TestProviderAllowedAPIKeysGuardsHomeCredentialSchedulingKey(t *testing.T) {
+	// An OpenAI-compatible Home credential carries a logical provider label that differs from
+	// the key its executor is scheduled under. A restriction on either name must apply.
+	const payload = `{"auth":{"id":"home-pool-auth","provider":"home-pool","attributes":{"api_key":"test-key","compat_name":"pool","provider_key":"pool"}}}`
+	for _, restricted := range []string{"home-pool", "openai-compatible-pool"} {
+		t.Run(restricted, func(t *testing.T) {
+			manager := newHomeSelectionTestManager(t, &fixtureHomeDispatcher{payload: []byte(payload)})
+			manager.RegisterExecutor(schedulerTestExecutor{provider: "openai-compatible-pool"})
+			manager.SetConfig(&internalconfig.Config{ProviderAllowedAPIKeys: map[string][]string{restricted: {"owner-key"}}})
+			opts := cliproxyexecutor.Options{}
+			opts.EnsureMetadata()
+			selection, err := manager.pickHomeDispatchSelection(coreusage.WithAPIKey(t.Context(), "guest-key"), "model", opts)
+			requireProviderAccessDenied(t, err)
+			if selection != nil {
+				t.Fatal("a restricted Home credential was selected for a guest key")
+			}
+			selection, err = manager.pickHomeDispatchSelection(coreusage.WithAPIKey(t.Context(), "owner-key"), "model", opts)
+			if err != nil {
+				t.Fatalf("listed key: err = %v", err)
+			}
+			selection.End("test_complete")
 		})
 	}
 }

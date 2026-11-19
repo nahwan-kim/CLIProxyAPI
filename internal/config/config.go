@@ -149,7 +149,9 @@ type Config struct {
 
 	// ProviderAllowedAPIKeys restricts a provider's credentials to the listed client API keys
 	// (provider name -> client keys). A provider without an entry serves every client key; a
-	// provider with an entry rejects every client key that is not listed (9ooniq).
+	// provider with an entry rejects every client key that is not listed (9ooniq). Known limit
+	// under Home: a Codex live call opened before an entry was added keeps its credential for
+	// sideband and hangup requests until the call ends.
 	ProviderAllowedAPIKeys map[string][]string `yaml:"provider-allowed-api-keys,omitempty" json:"provider-allowed-api-keys,omitempty"`
 
 	// ProxyPoolPublisher identifies the runtime that published this snapshot, so a

@@ -677,6 +677,11 @@ func v8AllowedRoots() map[string]bool {
 		section, _, _ := strings.Cut(path.current, ".")
 		allowed[section] = true
 	}
+	// 9ooniq: a v8 migration comments out every root it does not know, which would silently
+	// turn these host settings off.
+	for _, root := range []string{"provider-allowed-api-keys", "strict-thinking-levels", "typesafe"} {
+		allowed[root] = true
+	}
 	return allowed
 }
 

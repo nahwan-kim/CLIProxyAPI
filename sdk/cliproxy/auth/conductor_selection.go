@@ -2294,6 +2294,9 @@ func (m *Manager) pickNextLegacy(ctx context.Context, provider, model string, op
 		auth, exec, _, err := m.pickNextViaHome(ctx, model, opts, tried)
 		return auth, exec, err
 	}
+	if errAccess := m.checkProviderAccess(ctx, provider); errAccess != nil {
+		return nil, nil, errAccess
+	}
 
 	opts.EnsureMetadata()
 	clearSchedulerSelectionID(opts.Metadata)

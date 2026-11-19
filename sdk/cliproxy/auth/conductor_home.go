@@ -587,6 +587,12 @@ func (m *Manager) retainedHomeSessionSelection(ctx context.Context, opts cliprox
 			delete(selections, key)
 			continue
 		}
+		if m.checkHomeSelectionAccess(ctx, selection) != nil {
+			// A restriction added after this credential was retained applies to the next turn.
+			delete(selections, key)
+			ended = append(ended, selection)
+			continue
+		}
 		matchesCredential := credentialID == "" || key.credentialID == credentialID
 		matchesRoute := validRouteModel && key.routeModel == routeModel
 		_, excluded := excludedAuthIDs[strings.TrimSpace(key.credentialID)]
@@ -1245,6 +1251,11 @@ func (m *Manager) pickHomeDispatchSelection(ctx context.Context, model string, o
 	if logicalProvider == "" || executorKey == "" {
 		endScope()
 		return nil, &Error{Code: "invalid_auth", Message: "home returned auth without provider", HTTPStatus: http.StatusBadGateway}
+	}
+	// Home names the provider only now, so the request-time provider list could not restrict it.
+	if errAccess := m.checkProviderAccess(ctx, logicalProvider, executorKey); errAccess != nil {
+		endScope()
+		return nil, errAccess
 	}
 
 	homeAuthIndex := strings.TrimSpace(dispatch.AuthIndex)
