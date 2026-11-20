@@ -90,8 +90,20 @@ func (e *AntigravityExecutor) buildRequestDoc(ctx context.Context, auth *cliprox
 	}
 
 	applyAntigravityNativeSignatureReplayIfNeededDoc(modelName, doc)
+	// Built-in shaping ends with the opt-in CLI identity; user payload rules stay last.
+	cliIdentity := helps.AntigravityCLIIdentityEnabled(auth)
+	var cliTools *helps.AntigravityCLIRequestTools
+	if cliIdentity {
+		cliTools = helps.ApplyAntigravityCLIIdentityDoc(doc, modelName)
+	}
 	helps.FinalizePayloadDoc(ctx, doc)
 	finalPayload := doc.Bytes()
+	// Local consumers (translators, replay cache) get the client's tool names and
+	// arguments; only the upstream body and its request log carry the CLI form.
+	localPayload := finalPayload
+	if cliTools.RestoreClientView(doc) {
+		localPayload = doc.Bytes()
+	}
 	var (
 		bodyReader io.Reader = bytes.NewReader(finalPayload)
 		payloadLog []byte
@@ -99,10 +111,22 @@ func (e *AntigravityExecutor) buildRequestDoc(ctx context.Context, auth *cliprox
 	if e.cfg != nil && e.cfg.RequestLog {
 		payloadLog = append([]byte(nil), finalPayload...)
 	}
+	if cliIdentity {
+		// The CLI hides the body length, so generation requests go out chunked.
+		bodyReader = io.NopCloser(bodyReader)
+	}
 
+	ctx = helps.WithAntigravityCLIToolRoutes(ctx, cliTools.Routes())
 	httpReq, errReq := http.NewRequestWithContext(ctx, http.MethodPost, requestURL.String(), bodyReader)
 	if errReq != nil {
 		return nil, nil, errReq
+	}
+	if cliIdentity {
+		// The length stays hidden, but the body remains replayable so the transport
+		// can still retry on a dead pooled connection.
+		httpReq.GetBody = func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(finalPayload)), nil
+		}
 	}
 	// Deliberately no httpReq.Close: the native Antigravity client omits the
 	// Connection header and keeps its HTTP/1.1 connections alive, so forcing
@@ -138,7 +162,7 @@ func (e *AntigravityExecutor) buildRequestDoc(ctx context.Context, auth *cliprox
 		AuthValue: authValue,
 	})
 
-	return httpReq, finalPayload, nil
+	return httpReq, localPayload, nil
 }
 
 // sanitizeAntigravityRequestSchemas cleans the JSON schemas carried by an Antigravity request.
@@ -671,11 +695,19 @@ func resolveHost(base string) string {
 }
 
 func resolveUserAgent(auth *cliproxyauth.Auth) string {
-	return misc.AntigravityRequestUserAgent(antigravityConfiguredUserAgent(auth))
+	configured := antigravityConfiguredUserAgent(auth)
+	if configured == "" && helps.AntigravityCLIIdentityEnabled(auth) {
+		return helps.AntigravityCLIUserAgent
+	}
+	return misc.AntigravityRequestUserAgent(configured)
 }
 
 func resolveLoadCodeAssistUserAgent(auth *cliproxyauth.Auth) string {
-	return misc.AntigravityLoadCodeAssistUserAgent(antigravityConfiguredUserAgent(auth))
+	configured := antigravityConfiguredUserAgent(auth)
+	if configured == "" && helps.AntigravityCLIIdentityEnabled(auth) {
+		return helps.AntigravityCLIUserAgent
+	}
+	return misc.AntigravityLoadCodeAssistUserAgent(configured)
 }
 
 func antigravityConfiguredUserAgent(auth *cliproxyauth.Auth) string {

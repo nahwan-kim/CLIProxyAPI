@@ -200,6 +200,7 @@ func (e *AntigravityExecutor) Execute(ctx context.Context, auth *cliproxyauth.Au
 	if useCredits {
 		clearAntigravityCreditsFailureState(auth)
 	}
+	bodyBytes = helps.AntigravityCLIToolRoutesFrom(httpReq.Context()).NewResponseRestorer().Restore(bodyBytes)
 	reporter.ObserveResponseModel(bodyBytes)
 	if _, zeroErrMsg, zeroOutput := helps.CheckGeminiZeroOutputNonStream(responseFormat, bodyBytes, true); zeroOutput {
 		antiDetail := helps.ParseAntigravityUsage(bodyBytes)
@@ -456,11 +457,17 @@ func (e *AntigravityExecutor) executeClaudeNonStream(ctx context.Context, auth *
 	var pendingFilterPayload []byte
 	var pendingFilterMsg string
 	var pendingJSON []byte
+	cliTools := helps.AntigravityCLIToolRoutesFrom(httpReq.Context()).NewResponseRestorer()
 	scanner := bufio.NewScanner(httpResp.Body)
 	scanner.Buffer(nil, streamScannerBuffer)
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		helps.AppendAPIResponseChunk(ctx, e.cfg, line)
+		// Only a line that is a whole event is restored here; the lines of a split
+		// event are restored once, after reassembly.
+		if len(pendingJSON) == 0 {
+			line = cliTools.Restore(line)
+		}
 		if replayAccumulator != nil {
 			replayAccumulator.ObserveSSELine(line)
 		}
@@ -480,7 +487,7 @@ func (e *AntigravityExecutor) executeClaudeNonStream(ctx context.Context, auth *
 			if !ojson.ValidBytes(pendingJSON) {
 				continue
 			}
-			payload = pendingJSON
+			payload = cliTools.Restore(pendingJSON)
 			pendingJSON = nil
 		} else if payload != nil && !ojson.ValidBytes(payload) {
 			pendingJSON = append([]byte(nil), payload...)
