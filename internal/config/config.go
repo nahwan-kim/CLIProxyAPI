@@ -147,6 +147,9 @@ type Config struct {
 	// TypeSafe forwards System One judgment requests (POST /v1/systemone) to TypeSafe (9ooniq).
 	TypeSafe TypeSafeConfig `yaml:"typesafe,omitempty" json:"typesafe,omitempty"`
 
+	// FishAudio forwards text-to-speech requests (POST /fish/v1/tts) to Fish Audio (9ooniq).
+	FishAudio FishAudioConfig `yaml:"fish-audio,omitempty" json:"fish-audio,omitempty"`
+
 	// ProviderAllowedAPIKeys restricts a provider's credentials to the listed client API keys
 	// (provider name -> client keys). A provider without an entry serves every client key; a
 	// provider with an entry rejects every client key that is not listed (9ooniq). Known limit

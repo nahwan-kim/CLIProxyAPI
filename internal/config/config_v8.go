@@ -679,7 +679,7 @@ func v8AllowedRoots() map[string]bool {
 	}
 	// 9ooniq: a v8 migration comments out every root it does not know, which would silently
 	// turn these host settings off.
-	for _, root := range []string{"provider-allowed-api-keys", "strict-thinking-levels", "typesafe"} {
+	for _, root := range []string{"provider-allowed-api-keys", "strict-thinking-levels", "typesafe", "fish-audio"} {
 		allowed[root] = true
 	}
 	return allowed

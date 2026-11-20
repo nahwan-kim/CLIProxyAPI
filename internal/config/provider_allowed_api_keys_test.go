@@ -21,6 +21,9 @@ strict-thinking-levels: true
 typesafe:
   api-key: typesafe-key
   base-url: https://typesafe.example
+fish-audio:
+  api-key: fish-key
+  base-url: https://fish.example
 provider-allowed-api-keys:
   claude:
     - owner-key
@@ -44,6 +47,9 @@ provider-allowed-api-keys:
 	}
 	if cfg.TypeSafe.APIKey != "typesafe-key" || cfg.TypeSafe.BaseURL != "https://typesafe.example" {
 		t.Errorf("migration dropped typesafe: %+v", cfg.TypeSafe)
+	}
+	if cfg.FishAudio.APIKey != "fish-key" || cfg.FishAudio.BaseURL != "https://fish.example" {
+		t.Errorf("migration dropped fish-audio: %+v", cfg.FishAudio)
 	}
 	if t.Failed() {
 		t.Logf("migrated file:\n%s", migrated)

@@ -127,6 +127,13 @@ func (s *Server) setupRoutes() {
 		openaiV1.GET("/videos/:video_id", openaiHandlers.VideosRetrieve)
 	}
 
+	// Fish Audio passthrough (9ooniq). Its own prefix: /v1/tts is the xAI speech route.
+	fishV1 := s.engine.Group("/fish/v1")
+	fishV1.Use(AuthMiddleware(s.accessManager))
+	{
+		fishV1.POST("/tts", s.fishAudioTTS)
+	}
+
 	// Codex CLI direct route aliases (chatgpt_base_url compatible)
 	codexDirect := s.engine.Group("/backend-api/codex")
 	codexDirect.Use(AuthMiddleware(s.accessManager))
