@@ -27,7 +27,17 @@ const (
 )
 
 var (
-	antigravityCLIRoleBranding    = regexp.MustCompile(`(?m)^(⁂ Role\r?\n)You are omp's trusted coding assistant\.(\r?)$`)
+	// antigravityCLIBlockedSentences are the sentences of omp's own prompt that Google
+	// answers with 429 RESOURCE_EXHAUSTED when a system prompt carries one verbatim,
+	// wherever it stands in the text, each paired with wording that keeps its meaning.
+	// The match is exact: the same sentence without its period or with one word moved
+	// passes, and so does the sentence inside a tool declaration.
+	antigravityCLIBlockedSentences = strings.NewReplacer(
+		antigravityCLIDefaultIdentity,
+		"You are Antigravity's trusted coding assistant.",
+		"Touch displayed changed lines only; `…`, `..`, collapsed `N-M:` and out-of-window lines UNSEEN.",
+		"Edit only the changed lines that were displayed; treat `…`, `..`, collapsed `N-M:` ranges and lines outside the shown window as not seen.",
+	)
 	antigravityCLIPresetBranding  = regexp.MustCompile(`(?m)^You are omp(, a coding agent[. ])`)
 	antigravityCLIHeadingBranding = regexp.MustCompile(`(?m)^(## )OMP (todo updates|shell execution)(\r?)$`)
 )
@@ -138,8 +148,8 @@ func antigravityCLIDerivedUUID(seed, purpose string) string {
 }
 
 // applyAntigravityCLIBrandingDoc gives Gemini models the Antigravity preset in
-// place of omp's default behavior section. Other models, and system prompts the
-// preset does not recognize, only have their identity lines renamed.
+// place of omp's default behavior section. Every model, recognized prompt or
+// not, has the sentences Google rejects reworded and its identity lines renamed.
 func applyAntigravityCLIBrandingDoc(doc *ojson.Doc, modelName string) {
 	type edit struct{ path, text string }
 	var edits []edit
@@ -155,7 +165,7 @@ func applyAntigravityCLIBrandingDoc(doc *ojson.Doc, modelName string) {
 		if gemini {
 			branded, _ = antigravityCLIPresetText(branded, hasBash)
 		}
-		branded = antigravityCLIRoleBranding.ReplaceAllString(branded, "${1}You are Antigravity's trusted coding assistant.${2}")
+		branded = antigravityCLIBlockedSentences.Replace(branded)
 		branded = antigravityCLIPresetBranding.ReplaceAllString(branded, "You are Antigravity${1}")
 		branded = antigravityCLIHeadingBranding.ReplaceAllString(branded, "${1}Antigravity ${2}${3}")
 		if branded != original {

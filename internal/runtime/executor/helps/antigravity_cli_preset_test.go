@@ -37,11 +37,11 @@ func TestAntigravityCLIPresetReplacesOnlyTheDefaultBehaviorSection(t *testing.T)
 	}
 }
 
-// A document quoted after the template may use the other marker; only the
-// template that opens the text is replaced and everything after its Runtime
-// heading is kept.
+// A document quoted after the template may use the other marker or the preset's
+// own tag; only the template that opens the text is replaced and everything
+// after its Runtime heading is kept.
 func TestAntigravityCLIPresetKeepsEverythingAfterRuntime(t *testing.T) {
-	tail := "\n§ Runtime\n§ Tool Policy\n§ Workflow\nHandbook:\n⁂ Role\nquoted role\n⁂ Runtime\n⁂ Tool Policy\n⁂ Workflow\n"
+	tail := "\n§ Runtime\n§ Tool Policy\n§ Workflow\nHandbook:\n⁂ Role\nquoted role\n⁂ Runtime\n⁂ Tool Policy\n⁂ Workflow\nThe proxy wraps its preset in " + antigravityCLIPresetOpen + ".\n"
 	got := antigravityCLITestSystemPrompt(t, "gemini-3-flash", "§ Role\nYou are omp's trusted coding assistant.\n# Engineering\n"+tail)
 	if !strings.HasPrefix(got, "§ Role\n"+antigravityCLIPresetOpen) || !strings.HasSuffix(got, antigravityCLIPresetClose+"\n"+tail) {
 		t.Fatalf("system prompt = %q", got)
@@ -97,6 +97,41 @@ func TestAntigravityCLIPresetFollowsThePromptLineBreak(t *testing.T) {
 	}
 }
 
+// Google answers 429 when a system prompt carries one of omp's own sentences
+// verbatim, wherever it stands. The sentence is reworded in place, on every
+// model, and text that merely resembles it is left alone.
+func TestAntigravityCLIBlockedSentencesDoNotReachTheSystemPrompt(t *testing.T) {
+	const editRule = "Touch displayed changed lines only; `…`, `..`, collapsed `N-M:` and out-of-window lines UNSEEN."
+	for name, tc := range map[string]struct{ model, before, sentence, after string }{
+		"edit rule in the inline tool inventory": {"gemini-3-flash", "## functions\n\n// <rules>\n// - ", editRule, " Re-read first.\n// </rules>\ntype edit = (_: {\ninput: string,\n});\n"},
+		"identity quoted in a memory note":       {"gemini-3-flash", "You are a release bot.\n# Memory\n- The line `", antigravityCLIDefaultIdentity, "` was rejected upstream.\n"},
+		"another model on the same credential":   {"claude-sonnet-4-6", "You are a careful assistant.\n- ", editRule, "\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := antigravityCLITestSystemPrompt(t, tc.model, tc.before+tc.sentence+tc.after)
+			if strings.Contains(got, tc.sentence) {
+				t.Fatalf("blocked sentence survived: %q", got)
+			}
+			if !strings.HasPrefix(got, tc.before) || !strings.HasSuffix(got, tc.after) || len(got) <= len(tc.before)+len(tc.after) {
+				t.Fatalf("text around the sentence changed, or the sentence was dropped instead of reworded: %q", got)
+			}
+		})
+	}
+	const nearMisses = "You are omp's trusted coding assistant\n- Touch only displayed changed lines; `…`, `..`, collapsed `N-M:` and out-of-window lines UNSEEN.\n"
+	if got := antigravityCLITestSystemPrompt(t, "gemini-3-flash", nearMisses); got != nearMisses {
+		t.Fatalf("text that only resembles a blocked sentence changed: %q", got)
+	}
+	// The main agent's prompt: the preset replaces the behavior section and the
+	// inline tool inventory after it still carries the rule.
+	const ruleTail = " Re-read first.\n"
+	got := antigravityCLITestSystemPrompt(t, "gemini-3-flash", "You are omp's trusted coding assistant.\n\n# Engineering\n"+antigravityCLITestHostTail+"// - "+editRule+ruleTail)
+	if !strings.HasPrefix(got, antigravityCLIPresetOpen) || strings.Contains(got, editRule) || !strings.HasSuffix(got, ruleTail) {
+		t.Fatalf("blocked sentence survived after the preset, or the text after it changed: %q", got)
+	}
+}
+
+// Apart from the sentence Google rejects, which is reworded where it stands,
+// these prompts are not omp's to rewrite.
 func TestAntigravityCLIPresetLeavesOtherPromptsToTheirAuthors(t *testing.T) {
 	for name, tc := range map[string]struct{ model, system string }{
 		"custom template":                      {"gemini-3-flash", "You are a release bot.\n⁂ Runtime\n⁂ Tool Policy\n⁂ Workflow\n"},
@@ -112,8 +147,19 @@ func TestAntigravityCLIPresetLeavesOtherPromptsToTheirAuthors(t *testing.T) {
 		"tagged profile after host sections":   {"gemini-3-flash", "<omp-model-preset>\nprofile" + antigravityCLITestHostTail + "</omp-model-preset>\n"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := antigravityCLITestSystemPrompt(t, tc.model, tc.system); got != tc.system {
-				t.Fatalf("system prompt changed: %q", got)
+			got := antigravityCLITestSystemPrompt(t, tc.model, tc.system)
+			before, after, blocked := strings.Cut(tc.system, antigravityCLIDefaultIdentity)
+			if !blocked {
+				if got != tc.system {
+					t.Fatalf("system prompt changed: %q", got)
+				}
+				return
+			}
+			if !strings.HasPrefix(got, before) || !strings.HasSuffix(got, after) || len(got) <= len(before)+len(after) {
+				t.Fatalf("text around the blocked sentence changed: %q", got)
+			}
+			if reworded := got[len(before) : len(got)-len(after)]; reworded == antigravityCLIDefaultIdentity || strings.Contains(reworded, "\n") {
+				t.Fatalf("blocked sentence was not reworded in place: %q", reworded)
 			}
 		})
 	}

@@ -59,11 +59,9 @@ type antigravityCLIBehavior struct {
 // antigravityCLIPresetText replaces the behavior section that opens omp's system
 // prompt with the preset. It reports false for any other text: custom prompts
 // and policy documents that merely use the same section headings stay with their
-// authors, as does a client that already applied the preset.
+// authors, as does a client that already applied the preset, whose prompt opens
+// with neither shape. The preset's tag quoted later in the prompt changes nothing.
 func antigravityCLIPresetText(text string, hasBash bool) (string, bool) {
-	if strings.Contains(text, antigravityCLIPresetOpen) {
-		return text, false
-	}
 	behavior, ok := antigravityCLIFindBehavior(text)
 	if !ok {
 		return text, false
