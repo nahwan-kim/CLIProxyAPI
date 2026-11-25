@@ -240,7 +240,7 @@ func TestIsAuthBlockedForModel_ClaudeWithCreditsStillBlockedDuringCooldown(t *te
 		Known:     true,
 		Available: true,
 		UpdatedAt: time.Now(),
-	})
+	}, auth.RegistrationEpoch)
 
 	blocked, reason, _ := isAuthBlockedForModel(auth, "claude-sonnet-4-6", time.Now())
 	if !blocked || reason != blockReasonCooldown {
@@ -268,7 +268,7 @@ func TestIsAuthBlockedForModel_KeepsGeminiBlockedWithoutCreditsBypass(t *testing
 		Known:     true,
 		Available: true,
 		UpdatedAt: time.Now(),
-	})
+	}, auth.RegistrationEpoch)
 
 	blocked, reason, _ := isAuthBlockedForModel(auth, "gemini-3-flash", time.Now())
 	if !blocked || reason != blockReasonCooldown {
@@ -316,11 +316,15 @@ func TestManagerExecuteAndStream_ExpiredNegativeCreditsHintRecoversDuringModelCo
 			}
 
 			// Fresh negative hint must still suppress credits fallback while model is in cooldown.
+			registered, errGet := manager.GetByID(authID)
+			if !errGet {
+				t.Fatal("registered auth not found")
+			}
 			SetAntigravityCreditsHint(authID, AntigravityCreditsHint{
 				Known:     true,
 				Available: false,
 				UpdatedAt: time.Now(),
-			})
+			}, registered.RegistrationEpoch)
 			if stream {
 				if _, errStream := manager.ExecuteStream(context.Background(), []string{"antigravity"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{}); errStream == nil {
 					t.Fatal("ExecuteStream() succeeded with fresh negative credits hint, want cooldown error")
@@ -339,7 +343,7 @@ func TestManagerExecuteAndStream_ExpiredNegativeCreditsHintRecoversDuringModelCo
 				Known:     true,
 				Available: false,
 				UpdatedAt: time.Now().Add(-AntigravityCreditsHintRefreshInterval - time.Second),
-			})
+			}, registered.RegistrationEpoch)
 			if stream {
 				streamResult, errStream := manager.ExecuteStream(context.Background(), []string{"antigravity"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
 				if errStream != nil {
@@ -374,24 +378,27 @@ func TestManagerExecuteAndStream_ExpiredNegativeCreditsHintRecoversDuringModelCo
 	}
 }
 
-func TestResetAntigravityCreditsHintIfUnchanged_KeepsHintPublishedSinceTheRead(t *testing.T) {
-	const authID = "ag-reset-hint-if-unchanged"
-	t.Cleanup(func() { antigravityCreditsHintByAuth.Delete(authID) })
+func TestResetAntigravityCreditsHintForAuthIfUnchanged_KeepsHintPublishedSinceTheRead(t *testing.T) {
+	auth := &Auth{ID: "ag-reset-hint-if-unchanged", RegistrationEpoch: 7}
+	t.Cleanup(func() {
+		antigravityCreditsHintByAuth.Delete(newAntigravityCreditsHintCacheScope(auth.ID, AntigravityCreditsScope(auth)))
+		antigravityCreditsHintCurrentScope.Delete(auth.ID)
+	})
 
-	SetAntigravityCreditsHint(authID, AntigravityCreditsHint{Known: true, Available: false, MinCreditAmount: 1})
-	stale, _ := GetAntigravityCreditsHint(authID)
+	SetAntigravityCreditsHintForAuth(auth, AntigravityCreditsHint{Known: true, Available: false, MinCreditAmount: 1})
+	stale, _ := GetAntigravityCreditsHintForAuth(auth)
 
 	// A balance refresh publishes fresh credits between the caller's read and its reset.
-	SetAntigravityCreditsHint(authID, AntigravityCreditsHint{Known: true, Available: true, CreditAmount: 2516, MinCreditAmount: 50})
-	ResetAntigravityCreditsHintIfUnchanged(authID, stale)
-	if hint, ok := GetAntigravityCreditsHint(authID); !ok || !hint.Known || !hint.Available || hint.CreditAmount != 2516 {
+	SetAntigravityCreditsHintForAuth(auth, AntigravityCreditsHint{Known: true, Available: true, CreditAmount: 2516, MinCreditAmount: 50})
+	ResetAntigravityCreditsHintForAuthIfUnchanged(auth, stale)
+	if hint, ok := GetAntigravityCreditsHintForAuth(auth); !ok || !hint.Known || !hint.Available || hint.CreditAmount != 2516 {
 		t.Fatalf("hint after a reset based on a stale read = %#v (ok=%v), want the refreshed credits kept", hint, ok)
 	}
 
 	// Without a newer hint the state that was read is forgotten.
-	current, _ := GetAntigravityCreditsHint(authID)
-	ResetAntigravityCreditsHintIfUnchanged(authID, current)
-	if HasKnownAntigravityCreditsHint(authID) {
-		t.Fatal("hint is still known after a reset based on the current value")
+	current, _ := GetAntigravityCreditsHintForAuth(auth)
+	ResetAntigravityCreditsHintForAuthIfUnchanged(auth, current)
+	if hint, ok := GetAntigravityCreditsHintForAuth(auth); ok && hint.Known {
+		t.Fatalf("hint after a reset based on the current value = %#v, want it forgotten", hint)
 	}
 }

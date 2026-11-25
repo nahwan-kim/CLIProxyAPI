@@ -134,7 +134,8 @@ func TestAntigravityBuildRequestCLIIdentity(t *testing.T) {
 	call := "request.contents.1.parts."
 	expect(sent, call+"0.functionCall.name", "run_command")
 	expect(sent, call+"1.functionCall.name", "read_file")
-	if got, want := sent.Get(call+"1.functionCall.args").Raw, `{"Path":"src/a.go","StartLine":3,"EndLine":9,"i":"Reading a"}`; got != want {
+	// The upstream agent serializer emits call arguments in sorted key order.
+	if got, want := sent.Get(call+"1.functionCall.args").Raw, `{"EndLine":9,"Path":"src/a.go","StartLine":3,"i":"Reading a"}`; got != want {
 		t.Errorf("read_file args = %s, want %s", got, want)
 	}
 	expect(sent, call+"2.functionCall.name", "read")
@@ -273,8 +274,9 @@ func TestAntigravityBuildRequestWithoutCLIIdentityKeepsHubShape(t *testing.T) {
 	if got := sent.Get("request.tools.0.functionDeclarations.0.name").String(); got != "bash" {
 		t.Errorf("declared tool = %q, want bash unchanged", got)
 	}
-	if sent.Get("request.labels").Exists() || httpReq.ContentLength != int64(len(raw)) {
-		t.Errorf("default identity changed: labels=%s contentLength=%d", sent.Get("request.labels").Raw, httpReq.ContentLength)
+	// Upstream labels every agent request itself, so only the CLI-only traits are checked.
+	if httpReq.ContentLength != int64(len(raw)) {
+		t.Errorf("default identity changed: contentLength=%d, want %d", httpReq.ContentLength, len(raw))
 	}
 	if strings.Contains(httpReq.Header.Get("User-Agent"), "antigravity/cli/") {
 		t.Errorf("User-Agent = %q, want hub identity", httpReq.Header.Get("User-Agent"))
