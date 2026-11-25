@@ -227,6 +227,7 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 		}()
 		var pendingFilterPayload []byte
 		var pendingFilterMsg string
+		var sawUpstreamJSON bool
 		zeroOutputGuard := helps.NewGeminiZeroOutputStreamGuard(true, responseFormat)
 		failZeroOutput := func(finishReason string) bool {
 			translatedClaudeErr = nil
@@ -253,6 +254,7 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 			if payload == nil {
 				continue
 			}
+			sawUpstreamJSON = true
 
 			// Capture accounting before the client-facing filter renames usage.
 			streamUsage.ObserveAntigravityStream(payload)
@@ -392,6 +394,10 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 			case out <- cliproxyexecutor.StreamChunk{Err: streamErr}:
 			case <-ctx.Done():
 			}
+			return
+		}
+		if scanner.Err() == nil && ctx.Err() == nil && !sawUpstreamJSON {
+			failZeroOutput("")
 			return
 		}
 		if scanner.Err() == nil && ctx.Err() == nil && zeroOutputGuard.HasAbnormalFinish() {
